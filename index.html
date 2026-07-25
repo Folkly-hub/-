@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover"/>
+  <meta name="description" content="WildSnap — ถ่ายรูปสัตว์จริงเพื่อเก็บการ์ด AI วิเคราะห์บนเครื่อง"/>
+  <meta name="theme-color" content="#07070f"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="WildSnap"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <link rel="manifest" href="manifest.json"/>
+  <title>WildSnap</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
+  <style>
+    :root {
+      --bg:#07070f; --bg2:#0d0d1a;
+      --surface:rgba(255,255,255,0.05);
+      --border:rgba(255,255,255,0.09);
+      --text:#e8e8f0; --muted:#6b6b8a; --accent:#7c5cfc;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bot: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+    }
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    html { height: -webkit-fill-available; }
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg); color: var(--text);
+      height: 100dvh; overflow: hidden;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+      user-select: none; -webkit-user-select: none;
+    }
+
+    /* ── ORBS ── */
+    .orbs { position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden; }
+    .orb  { position:absolute; border-radius:50%; filter:blur(90px); opacity:0.14; animation:orbFloat 9s ease-in-out infinite alternate; }
+    .orb1 { width:350px; height:350px; background:radial-gradient(#7c5cfc,transparent); top:-100px; left:-80px; }
+    .orb2 { width:300px; height:300px; background:radial-gradient(#f59e0b,transparent); bottom:-80px; right:-50px; animation-duration:12s; }
+    .orb3 { width:220px; height:220px; background:radial-gradient(#10b981,transparent); top:35%; left:55%; animation-duration:7s; }
+    @keyframes orbFloat { from{transform:translate(0,0) scale(1)} to{transform:translate(22px,32px) scale(1.12)} }
+
+    /* ── SCREENS ── */
+    .screen {
+      position:fixed; inset:0; z-index:10;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      padding: calc(var(--safe-top) + 20px) calc(var(--safe-right) + 20px) calc(var(--safe-bot) + 20px) calc(var(--safe-left) + 20px);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+    .screen.hidden { opacity:0; pointer-events:none; transform:scale(0.96); }
+
+    /* ── LOADING ── */
+    #screen-loading { background:linear-gradient(160deg,#07070f,#0d0d20); gap:24px; }
+    .loading-logo { width:90px; height:90px; background:linear-gradient(135deg,#7c5cfc,#a855f7); border-radius:24px; display:flex; align-items:center; justify-content:center; font-size:46px; box-shadow:0 0 50px rgba(124,92,252,0.55); animation:pulseLogo 2s ease-in-out infinite; }
+    @keyframes pulseLogo { 0%,100%{box-shadow:0 0 40px rgba(124,92,252,0.5)} 50%{box-shadow:0 0 80px rgba(124,92,252,0.9)} }
+    .loading-title { font-size:38px; font-weight:900; background:linear-gradient(135deg,#fff,#c4b5fd,#7c5cfc); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; letter-spacing:-1px; }
+    .loading-bar-track { width:240px; height:6px; background:var(--surface); border:1px solid var(--border); border-radius:999px; overflow:hidden; }
+    .loading-bar { height:100%; background:linear-gradient(90deg,#7c5cfc,#a855f7); border-radius:999px; width:0%; transition:width 0.4s ease; }
+    .loading-status { font-size:13px; color:var(--muted); text-align:center; min-height:18px; }
+    .loading-note { font-size:11px; color:rgba(255,255,255,0.2); text-align:center; max-width:230px; line-height:1.55; }
+
+    /* ── HOME ── */
+    #screen-home { background:linear-gradient(160deg,#07070f,#0d0d20); gap:0; }
+    .home-logo-wrap { display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:32px; animation:fadeUp 0.7s ease both; }
+    .logo-icon { width:96px; height:96px; background:linear-gradient(135deg,#7c5cfc,#a855f7); border-radius:26px; display:flex; align-items:center; justify-content:center; font-size:50px; box-shadow:0 0 40px rgba(124,92,252,0.5); animation:pulseLogo 3s ease-in-out infinite; }
+    .logo-title { font-size:40px; font-weight:900; background:linear-gradient(135deg,#fff 0%,#c4b5fd 50%,#7c5cfc 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; letter-spacing:-1px; }
+    .logo-sub { font-size:13px; color:var(--muted); letter-spacing:2.5px; text-transform:uppercase; }
+
+    .ai-badge { display:inline-flex; align-items:center; gap:7px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); border-radius:999px; padding:7px 16px; font-size:12px; color:#10b981; font-weight:600; margin-bottom:20px; animation:fadeUp 0.7s 0.1s ease both; }
+
+    .home-stats { display:flex; gap:12px; margin-bottom:36px; animation:fadeUp 0.7s 0.15s ease both; }
+    .stat-pill { background:var(--surface); border:1px solid var(--border); border-radius:999px; padding:9px 18px; font-size:13px; font-weight:500; color:var(--muted); }
+    .stat-pill span { color:var(--text); font-weight:700; }
+
+    .btn-primary {
+      width:100%; max-width:300px; padding:19px;
+      background:linear-gradient(135deg,#7c5cfc,#a855f7);
+      border:none; border-radius:18px; color:#fff;
+      font-family:'Outfit',sans-serif; font-size:18px; font-weight:700;
+      cursor:pointer; touch-action:manipulation;
+      box-shadow:0 8px 30px rgba(124,92,252,0.45);
+      transition:transform 0.12s, box-shadow 0.12s;
+      -webkit-appearance:none; appearance:none;
+      animation:fadeUp 0.7s 0.25s ease both;
+    }
+    .btn-primary:active { transform:scale(0.95); box-shadow:0 4px 16px rgba(124,92,252,0.3); }
+    .btn-primary:disabled { opacity:0.35; transform:none !important; }
+
+    .btn-secondary {
+      width:100%; max-width:300px; padding:17px;
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:18px; color:var(--text);
+      font-family:'Outfit',sans-serif; font-size:16px; font-weight:600;
+      cursor:pointer; touch-action:manipulation; margin-top:12px;
+      transition:background 0.15s, transform 0.12s;
+      -webkit-appearance:none; appearance:none;
+      animation:fadeUp 0.7s 0.35s ease both;
+    }
+    .btn-secondary:active { background:rgba(255,255,255,0.09); transform:scale(0.96); }
+
+    @keyframes fadeUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ── CAMERA ── */
+    #screen-camera { padding:0; background:#000; }
+    #video {
+      position:absolute; inset:0;
+      width:100%; height:100%;
+      object-fit:cover;
+      -webkit-playsinline:true;
+    }
+
+    /* Flash effect */
+    #camera-flash {
+      position:absolute; inset:0; background:#fff;
+      opacity:0; pointer-events:none; z-index:5;
+      transition:opacity 0.08s ease;
+    }
+    #camera-flash.flash { opacity:0.9; }
+
+    .camera-overlay { position:absolute; inset:0; display:flex; flex-direction:column; pointer-events:none; z-index:2; }
+
+    .camera-top {
+      padding: calc(var(--safe-top) + 16px) 20px 16px;
+      display:flex; align-items:center; gap:12px;
+      background:linear-gradient(to bottom,rgba(0,0,0,0.72),transparent);
+      pointer-events:all;
+    }
+    .btn-back {
+      width:44px; height:44px; background:rgba(255,255,255,0.13);
+      border:1px solid rgba(255,255,255,0.18); border-radius:14px;
+      color:#fff; font-size:20px; display:flex; align-items:center; justify-content:center;
+      cursor:pointer; backdrop-filter:blur(10px); touch-action:manipulation;
+      transition:background 0.15s;
+    }
+    .btn-back:active { background:rgba(255,255,255,0.25); }
+    .camera-title { font-size:16px; font-weight:600; color:#fff; flex:1; }
+    .camera-ai-tag { background:rgba(16,185,129,0.22); border:1px solid rgba(16,185,129,0.45); border-radius:999px; padding:5px 11px; font-size:11px; color:#10b981; font-weight:700; letter-spacing:0.5px; }
+
+    .scan-frame { flex:1; display:flex; align-items:center; justify-content:center; }
+    .scan-border { width:min(70vw,280px); height:min(70vw,280px); position:relative; animation:scanPulse 2s ease-in-out infinite; }
+    .scan-corner { position:absolute; width:46px; height:46px; border-color:rgba(124,92,252,0.95); border-style:solid; }
+    .corner-tl { top:0; left:0; border-width:3px 0 0 3px; border-radius:4px 0 0 0; }
+    .corner-tr { top:0; right:0; border-width:3px 3px 0 0; border-radius:0 4px 0 0; }
+    .corner-bl { bottom:0; left:0; border-width:0 0 3px 3px; border-radius:0 0 0 4px; }
+    .corner-br { bottom:0; right:0; border-width:0 3px 3px 0; border-radius:0 0 4px 0; }
+    .scan-line { position:absolute; left:4px; right:4px; height:2px; background:linear-gradient(to right,transparent,rgba(124,92,252,0.85),transparent); animation:scanLine 2s ease-in-out infinite; }
+    @keyframes scanLine { 0%{top:8px;opacity:0} 8%{opacity:1} 92%{opacity:1} 100%{top:calc(100% - 10px);opacity:0} }
+    @keyframes scanPulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+    .camera-hint { padding:10px 20px; font-size:13px; color:rgba(255,255,255,0.6); text-align:center; }
+
+    .camera-bottom {
+      padding: 16px 20px calc(var(--safe-bot) + 40px);
+      display:flex; align-items:center; justify-content:center;
+      background:linear-gradient(to top,rgba(0,0,0,0.72),transparent);
+      pointer-events:all; gap:32px;
+    }
+    .btn-capture {
+      width:84px; height:84px; border-radius:50%;
+      background:#fff; border:4px solid rgba(255,255,255,0.35);
+      cursor:pointer; display:flex; align-items:center; justify-content:center;
+      box-shadow:0 0 0 10px rgba(255,255,255,0.1);
+      touch-action:manipulation; transition:transform 0.12s;
+      -webkit-appearance:none; appearance:none;
+    }
+    .btn-capture-inner { width:62px; height:62px; border-radius:50%; background:linear-gradient(135deg,#7c5cfc,#a855f7); transition:transform 0.12s; }
+    .btn-capture:active { transform:scale(0.9); }
+    .btn-capture:active .btn-capture-inner { transform:scale(0.9); }
+
+    /* ── PROCESSING ── */
+    #screen-processing { background:radial-gradient(ellipse at center,#0d0d20,#07070f); gap:28px; }
+    .proc-icon { width:110px; height:110px; border-radius:30px; background:var(--surface); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:58px; position:relative; animation:procPulse 1.5s ease-in-out infinite; }
+    @keyframes procPulse { 0%,100%{box-shadow:0 0 20px rgba(124,92,252,0.3)} 50%{box-shadow:0 0 55px rgba(124,92,252,0.75)} }
+    .proc-ring { position:absolute; inset:-14px; border-radius:42px; border:2.5px solid transparent; border-top-color:var(--accent); animation:spin 1s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .proc-title { font-size:22px; font-weight:700; text-align:center; }
+    .proc-subtitle { font-size:13px; color:var(--muted); text-align:center; max-width:250px; line-height:1.55; }
+    .proc-bar-track { width:260px; background:var(--surface); border:1px solid var(--border); border-radius:999px; height:8px; overflow:hidden; }
+    .proc-bar { height:100%; background:linear-gradient(90deg,#7c5cfc,#a855f7); border-radius:999px; width:0%; transition:width 0.25s ease; }
+    .proc-label { font-size:13px; color:var(--muted); min-height:18px; text-align:center; }
+    .proc-confidence { font-size:32px; font-weight:800; color:#c4b5fd; display:none; text-align:center; }
+
+    /* ── REVEAL ── */
+    #screen-reveal { background:radial-gradient(ellipse at 50% 38%,#100a20,#07070f); gap:20px; overflow:hidden; }
+    .reveal-title { font-size:13px; font-weight:700; letter-spacing:3px; text-transform:uppercase; color:var(--muted); }
+    .confidence-chip { display:inline-flex; align-items:center; gap:6px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.3); border-radius:999px; padding:5px 14px; font-size:12px; color:#10b981; font-weight:600; }
+
+    .card-flip-wrap { width:min(78vw,280px); height:min(111vw,400px); perspective:1100px; cursor:pointer; }
+    .card-flip-inner { width:100%; height:100%; position:relative; transform-style:preserve-3d; transition:transform 0.75s cubic-bezier(0.4,0.2,0.2,1); }
+    .card-flip-inner.flipped { transform:rotateY(180deg); }
+    .card-face { position:absolute; inset:0; border-radius:22px; backface-visibility:hidden; -webkit-backface-visibility:hidden; }
+    .card-back { background:linear-gradient(135deg,#1a1040,#0d0820); border:1px solid rgba(124,92,252,0.35); display:flex; align-items:center; justify-content:center; box-shadow:0 20px 60px rgba(0,0,0,0.65); }
+    .card-back-pattern { position:absolute; inset:0; border-radius:22px; background-image:repeating-linear-gradient(45deg,transparent 0,transparent 10px,rgba(124,92,252,0.05) 10px,rgba(124,92,252,0.05) 11px); }
+    .card-back-logo { font-size:58px; position:relative; z-index:1; }
+    .card-front { transform:rotateY(180deg); display:flex; flex-direction:column; overflow:hidden; }
+    .card-header { padding:18px 18px 12px; display:flex; flex-direction:column; gap:6px; }
+    .card-emoji-big { font-size:74px; text-align:center; line-height:1; filter:drop-shadow(0 8px 20px rgba(0,0,0,0.4)); margin-bottom:4px; }
+    .card-name { font-size:24px; font-weight:800; text-align:center; color:#fff; letter-spacing:-0.5px; }
+    .rarity-badge { display:inline-flex; align-items:center; padding:4px 12px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; align-self:center; border:1px solid currentColor; opacity:0.9; }
+    .card-body { flex:1; background:rgba(0,0,0,0.32); margin:0 10px; border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:9px; }
+    .stat-row { display:flex; align-items:center; gap:9px; }
+    .stat-icon { font-size:13px; width:18px; text-align:center; }
+    .stat-lbl { font-size:10px; color:rgba(255,255,255,0.45); text-transform:uppercase; letter-spacing:1px; width:38px; }
+    .stat-bar-wrap { flex:1; height:5px; background:rgba(255,255,255,0.1); border-radius:999px; overflow:hidden; }
+    .stat-bar { height:100%; border-radius:999px; }
+    .stat-val { font-size:12px; font-weight:700; color:#fff; min-width:34px; text-align:right; }
+    .card-desc { font-size:10.5px; line-height:1.5; color:rgba(255,255,255,0.5); border-top:1px solid rgba(255,255,255,0.08); padding-top:9px; }
+    .card-footer { padding:10px 18px 14px; display:flex; justify-content:space-between; align-items:center; }
+    .card-type-tag { font-size:10px; color:rgba(255,255,255,0.35); letter-spacing:1px; text-transform:uppercase; }
+    .card-score-tag { font-size:13px; font-weight:700; color:rgba(255,255,255,0.8); }
+
+    .reveal-actions { display:flex; flex-direction:column; align-items:center; gap:10px; width:100%; max-width:300px; }
+
+    /* ── PARTICLES ── */
+    .particles { position:fixed; inset:0; pointer-events:none; z-index:50; overflow:hidden; }
+    .particle { position:absolute; border-radius:50%; animation:fly 1.2s ease-out forwards; }
+    @keyframes fly { 0%{transform:translate(0,0) scale(1);opacity:1} 100%{transform:translate(var(--dx),var(--dy)) scale(0);opacity:0} }
+
+    /* ── FAIL ── */
+    #screen-fail { background:radial-gradient(ellipse at center,#150a0a,#07070f); gap:20px; }
+    .fail-icon { font-size:76px; animation:shake 0.5s ease both; }
+    @keyframes shake { 0%,100%{transform:rotate(0)} 25%{transform:rotate(-8deg)} 75%{transform:rotate(8deg)} }
+    .fail-title { font-size:24px; font-weight:800; color:#ff6b6b; text-align:center; }
+    .fail-msg { font-size:14px; color:var(--muted); text-align:center; line-height:1.65; max-width:280px; }
+    .fail-detail { font-size:11.5px; color:rgba(255,255,255,0.22); text-align:center; font-family:monospace; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 14px; max-width:280px; word-break:break-all; display:none; }
+
+    /* ── COLLECTION ── */
+    #screen-collection { padding:0; justify-content:flex-start; background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch; }
+    .coll-header { width:100%; padding:calc(var(--safe-top)+14px) 22px 18px; background:linear-gradient(to bottom,var(--bg2),transparent); display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:5; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
+    .coll-title-wrap { flex:1; }
+    .coll-title { font-size:22px; font-weight:800; }
+    .coll-sub { font-size:13px; color:var(--muted); margin-top:2px; }
+    .coll-score-badge { padding:8px 14px; background:rgba(124,92,252,0.12); border:1px solid rgba(124,92,252,0.3); border-radius:12px; text-align:center; }
+    .coll-score-val { font-size:18px; font-weight:800; color:#c4b5fd; display:block; }
+    .coll-score-lbl { font-size:10px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
+    .coll-progress-wrap { width:calc(100% - 44px); margin:0 22px 18px; }
+    .coll-progress-label { font-size:12px; color:var(--muted); margin-bottom:6px; display:flex; justify-content:space-between; }
+    .coll-progress-track { height:6px; background:var(--surface); border:1px solid var(--border); border-radius:999px; overflow:hidden; }
+    .coll-progress-fill { height:100%; background:linear-gradient(90deg,#7c5cfc,#a855f7); border-radius:999px; transition:width 0.5s ease; }
+    .coll-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:13px; padding:0 14px calc(var(--safe-bot)+80px); width:100%; }
+    .mini-card { border-radius:18px; padding:16px 12px; cursor:pointer; transition:transform 0.18s,box-shadow 0.18s; position:relative; overflow:hidden; display:flex; flex-direction:column; align-items:center; gap:8px; min-height:158px; justify-content:center; touch-action:manipulation; }
+    .mini-card:active { transform:scale(0.94); }
+    .mini-card.locked { background:var(--surface); border:1px solid var(--border); }
+    .mini-emoji { font-size:48px; line-height:1; transition:filter 0.3s; }
+    .mini-card.locked .mini-emoji { filter:grayscale(1) opacity(0.18); }
+    .mini-name { font-size:14px; font-weight:700; color:#fff; text-align:center; }
+    .mini-card.locked .mini-name { color:var(--muted); }
+    .mini-rarity { font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; }
+    .mini-card.locked .mini-rarity { color:var(--muted); }
+    .mini-lock { position:absolute; top:10px; right:10px; font-size:15px; opacity:0.28; }
+    .mini-count { position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.45); border-radius:7px; padding:2px 7px; font-size:11px; font-weight:700; color:#fff; }
+    .mini-shine { position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,255,255,0.07) 0%,transparent 55%); border-radius:18px; pointer-events:none; }
+
+    /* ── MODAL ── */
+    .modal-overlay { position:fixed; inset:0; z-index:100; background:rgba(0,0,0,0.72); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); display:flex; align-items:flex-end; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.28s ease; }
+    .modal-overlay.open { opacity:1; pointer-events:all; }
+    .modal-sheet { width:100%; max-width:480px; border-radius:28px 28px 0 0; padding:20px 22px calc(var(--safe-bot)+32px); transform:translateY(100%); transition:transform 0.38s cubic-bezier(0.4,0.2,0.2,1); display:flex; flex-direction:column; gap:15px; }
+    .modal-overlay.open .modal-sheet { transform:translateY(0); }
+    .modal-handle { width:40px; height:4px; background:rgba(255,255,255,0.15); border-radius:999px; align-self:center; margin-bottom:6px; }
+    .modal-head { display:flex; align-items:center; gap:14px; }
+    .modal-emoji { font-size:58px; line-height:1; }
+    .modal-name { font-size:26px; font-weight:800; color:#fff; }
+    .modal-stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .modal-stat { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.07); border-radius:14px; padding:12px 14px; }
+    .modal-stat .lbl { font-size:11px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
+    .modal-stat .val { font-size:22px; font-weight:800; color:#fff; margin-top:2px; }
+    .modal-desc { font-size:14px; line-height:1.65; color:var(--muted); background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:14px 16px; }
+    .modal-dupes { font-size:13px; color:var(--muted); text-align:center; }
+
+    /* ── TOAST ── */
+    #toast { position:fixed; bottom:calc(var(--safe-bot)+100px); left:50%; transform:translateX(-50%) translateY(20px); z-index:200; background:rgba(20,20,40,0.96); border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:13px 22px; font-size:14px; font-weight:500; white-space:nowrap; opacity:0; transition:opacity 0.3s,transform 0.3s; pointer-events:none; backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
+    #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+<div class="orbs"><div class="orb orb1"></div><div class="orb orb2"></div><div class="orb orb3"></div></div>
+<div class="particles" id="particles"></div>
+<div id="toast"></div>
+<canvas id="canvas-hidden" style="display:none"></canvas>
+
+<!-- ═══ LOADING ═══ -->
+<div class="screen" id="screen-loading">
+  <div class="loading-logo">📸</div>
+  <div class="loading-title">WildSnap</div>
+  <div class="loading-bar-track"><div class="loading-bar" id="loading-bar"></div></div>
+  <div class="loading-status" id="loading-status">Initializing…</div>
+  <div class="loading-note">กำลังโหลด AI Model (MobileNet)<br/>ไม่มีการส่งรูปออก Internet</div>
+</div>
+
+<!-- ═══ HOME ═══ -->
+<div class="screen hidden" id="screen-home">
+  <div class="home-logo-wrap">
+    <div class="logo-icon">📸</div>
+    <div class="logo-title">WildSnap</div>
+    <div class="logo-sub">Animal Card Collection</div>
+  </div>
+  <div class="ai-badge">🧠 On-Device AI • กล้องหลัง</div>
+  <div class="home-stats">
+    <div class="stat-pill">เก็บได้: <span id="home-count">0</span>/10</div>
+    <div class="stat-pill">คะแนน: <span id="home-score">0</span></div>
+  </div>
+  <button class="btn-primary" onclick="openCamera()">📷 &nbsp; ถ่ายรูปสัตว์</button>
+  <button class="btn-secondary" onclick="showCollection()">🗂️ &nbsp; คอลเล็กชันของฉัน</button>
+</div>
+
+<!-- ═══ CAMERA ═══ -->
+<div class="screen hidden" id="screen-camera">
+  <video id="video" autoplay playsinline muted webkit-playsinline x5-playsinline></video>
+  <div id="camera-flash"></div>
+  <div class="camera-overlay">
+    <div class="camera-top">
+      <div class="btn-back" onclick="closeCamera()">←</div>
+      <div class="camera-title">ส่องกล้องที่สัตว์</div>
+      <div class="camera-ai-tag">🧠 AI</div>
+    </div>
+    <div class="scan-frame">
+      <div class="scan-border">
+        <div class="scan-corner corner-tl"></div>
+        <div class="scan-corner corner-tr"></div>
+        <div class="scan-corner corner-bl"></div>
+        <div class="scan-corner corner-br"></div>
+        <div class="scan-line"></div>
+      </div>
+    </div>
+    <div class="camera-hint">เล็งที่สัตว์ตัวเดียว ให้ชัด มีแสงเพียงพอ</div>
+    <div class="camera-bottom">
+      <button class="btn-capture" onclick="capturePhoto()">
+        <div class="btn-capture-inner"></div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PROCESSING ═══ -->
+<div class="screen hidden" id="screen-processing">
+  <div class="proc-icon"><span id="proc-emoji">🔍</span><div class="proc-ring"></div></div>
+  <div class="proc-title">AI กำลังวิเคราะห์…</div>
+  <div class="proc-subtitle" id="proc-subtitle">MobileNet ประมวลผลบนเครื่อง</div>
+  <div class="proc-bar-track"><div class="proc-bar" id="proc-bar"></div></div>
+  <div class="proc-label" id="proc-label">กำลัง classify ภาพ…</div>
+  <div class="proc-confidence" id="proc-confidence"></div>
+</div>
+
+<!-- ═══ REVEAL ═══ -->
+<div class="screen hidden" id="screen-reveal">
+  <div class="reveal-title" id="reveal-title">การ์ดใหม่!</div>
+  <div class="confidence-chip" id="confidence-chip">🧠 97.2%</div>
+  <div class="card-flip-wrap" onclick="flipCard()">
+    <div class="card-flip-inner" id="card-flip">
+      <div class="card-face card-back">
+        <div class="card-back-pattern"></div>
+        <span class="card-back-logo">📸</span>
+      </div>
+      <div class="card-face card-front" id="card-front">
+        <div class="card-header">
+          <div class="card-emoji-big" id="reveal-emoji">🦁</div>
+          <div class="card-name" id="reveal-name">Lion</div>
+          <div class="rarity-badge" id="reveal-badge">Legendary</div>
+        </div>
+        <div class="card-body">
+          <div class="stat-row"><span class="stat-icon">⚔️</span><span class="stat-lbl">ATK</span><div class="stat-bar-wrap"><div class="stat-bar" id="r-atk-bar"></div></div><span class="stat-val" id="r-atk">210</span></div>
+          <div class="stat-row"><span class="stat-icon">❤️</span><span class="stat-lbl">HP</span><div class="stat-bar-wrap"><div class="stat-bar" id="r-hp-bar"></div></div><span class="stat-val" id="r-hp">950</span></div>
+          <div class="stat-row"><span class="stat-icon">✨</span><span class="stat-lbl">Score</span><div class="stat-bar-wrap"><div class="stat-bar" id="r-score-bar"></div></div><span class="stat-val" id="r-score">750</span></div>
+          <p class="card-desc" id="r-desc">…</p>
+        </div>
+        <div class="card-footer">
+          <span class="card-type-tag" id="r-type">Predator</span>
+          <span class="card-score-tag" id="r-pts">+750 pts</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="reveal-actions">
+    <button class="btn-primary" onclick="goHome()" style="animation:none">✅ &nbsp; เก็บการ์ด</button>
+    <button class="btn-secondary" onclick="openCamera()">📷 &nbsp; ถ่ายอีกครั้ง</button>
+  </div>
+</div>
+
+<!-- ═══ FAIL ═══ -->
+<div class="screen hidden" id="screen-fail">
+  <div class="fail-icon" id="fail-icon">❓</div>
+  <div class="fail-title" id="fail-title">ไม่รู้จักสัตว์ชนิดนี้</div>
+  <div class="fail-msg" id="fail-msg">ลองถ่ายสัตว์ที่รองรับ</div>
+  <div class="fail-detail" id="fail-detail"></div>
+  <button class="btn-primary" onclick="openCamera()" style="margin-top:14px;max-width:280px;animation:none">📷 ถ่ายใหม่</button>
+  <button class="btn-secondary" onclick="goHome()" style="max-width:280px;animation:none">← กลับหน้าหลัก</button>
+</div>
+
+<!-- ═══ COLLECTION ═══ -->
+<div class="screen hidden" id="screen-collection">
+  <div class="coll-header">
+    <div class="btn-back" onclick="goHome()">←</div>
+    <div class="coll-title-wrap">
+      <div class="coll-title">คอลเล็กชัน</div>
+      <div class="coll-sub" id="coll-sub">พบ 0 จาก 10 ชนิด</div>
+    </div>
+    <div class="coll-score-badge">
+      <span class="coll-score-val" id="coll-score-val">0</span>
+      <span class="coll-score-lbl">คะแนน</span>
+    </div>
+  </div>
+  <div class="coll-progress-wrap">
+    <div class="coll-progress-label"><span>ความคืบหน้า</span><span id="coll-pct">0%</span></div>
+    <div class="coll-progress-track"><div class="coll-progress-fill" id="coll-pfill" style="width:0%"></div></div>
+  </div>
+  <div class="coll-grid" id="coll-grid"></div>
+</div>
+
+<!-- ═══ MODAL ═══ -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal-sheet" id="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-head">
+      <div class="modal-emoji" id="m-emoji">🦁</div>
+      <div>
+        <div class="modal-name" id="m-name">Lion</div>
+        <div class="rarity-badge" id="m-badge" style="margin-top:5px">Legendary</div>
+      </div>
+    </div>
+    <div class="modal-stats-grid">
+      <div class="modal-stat"><div class="lbl">⚔️ Attack</div><div class="val" id="m-atk">210</div></div>
+      <div class="modal-stat"><div class="lbl">❤️ HP</div><div class="val" id="m-hp">950</div></div>
+      <div class="modal-stat"><div class="lbl">✨ Score</div><div class="val" id="m-score">750</div></div>
+      <div class="modal-stat"><div class="lbl">🌿 Type</div><div class="val" id="m-type" style="font-size:16px">Predator</div></div>
+    </div>
+    <div class="modal-desc" id="m-desc"></div>
+    <div class="modal-dupes" id="m-dupes"></div>
+    <button class="btn-primary" onclick="closeModal()" style="animation:none">ปิด</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════ DATA ═══════════════
+const CARDS = [
+  {id:1,name:"Cat",emoji:"🐱",type:"Domestic",rarity:"Common",attack:18,hp:120,scoreValue:50,cardColor:"#374151",rc:"#9ca3af",rg:"rgba(156,163,175,0.35)",desc:"แมวบ้านผู้สง่างาม มีสัญชาตญาณที่คมกริบ พบได้ทั่วไปในชุมชนมนุษย์"},
+  {id:2,name:"Dog",emoji:"🐶",type:"Domestic",rarity:"Common",attack:22,hp:150,scoreValue:55,cardColor:"#44403c",rc:"#9ca3af",rg:"rgba(156,163,175,0.35)",desc:"เพื่อนที่ซื่อสัตย์ที่สุดของมนุษยชาติ สัญชาตญาณฝูงทำให้มันเก่งกว่าที่เห็น"},
+  {id:3,name:"Cow",emoji:"🐄",type:"Livestock",rarity:"Common",attack:35,hp:280,scoreValue:80,cardColor:"#422006",rc:"#9ca3af",rg:"rgba(156,163,175,0.35)",desc:"สัตว์เลี้ยงขนาดใหญ่ที่น่าประทับใจ แม้จะเชื่องแต่มี HP มหาศาล"},
+  {id:4,name:"Horse",emoji:"🐴",type:"Livestock",rarity:"Rare",attack:65,hp:420,scoreValue:150,cardColor:"#1e3a5f",rc:"#3b82f6",rg:"rgba(59,130,246,0.45)",desc:"สัตว์สูงศักดิ์ที่เปี่ยมพลัง เคียงข้างนักรบมานับพันปี กีบเท้าของมันสามารถทุบหินแตกได้"},
+  {id:5,name:"Monkey",emoji:"🐒",type:"Wild",rarity:"Rare",attack:58,hp:320,scoreValue:140,cardColor:"#3b1f0e",rc:"#3b82f6",rg:"rgba(59,130,246,0.45)",desc:"ชาญฉลาด คล่องแคล่ว และคาดเดาไม่ได้ ลิงใช้สภาพแวดล้อมในการต่อสู้อย่างชาญฉลาด"},
+  {id:6,name:"Deer",emoji:"🦌",type:"Wild",rarity:"Rare",attack:48,hp:350,scoreValue:130,cardColor:"#14532d",rc:"#3b82f6",rg:"rgba(59,130,246,0.45)",desc:"ผู้อยู่อาศัยในป่าที่หลบเลี่ยงเก่ง ถ่ายได้คือโชค"},
+  {id:7,name:"Zebra",emoji:"🦓",type:"Wild",rarity:"Epic",attack:95,hp:580,scoreValue:280,cardColor:"#1c1c2a",rc:"#a855f7",rg:"rgba(168,85,247,0.5)",desc:"นักรบแห่งทุ่งหญ้าสะวันนา ม้าลายเคยเตะสิงโตตายมาแล้ว"},
+  {id:8,name:"Giraffe",emoji:"🦒",type:"Wild",rarity:"Epic",attack:110,hp:850,scoreValue:320,cardColor:"#451a03",rc:"#a855f7",rg:"rgba(168,85,247,0.5)",desc:"สัตว์ที่สูงที่สุดบนโลก การโจมตีด้วยคอสามารถสร้างแรงสะเทือนมหาศาล"},
+  {id:9,name:"Lion",emoji:"🦁",type:"Predator",rarity:"Legendary",attack:210,hp:950,scoreValue:750,cardColor:"#431407",rc:"#f59e0b",rg:"rgba(245,158,11,0.55)",desc:"ราชาแห่งทุ่งหญ้าสะวันนา นักล่าสูงสุดที่ครองความเกรงขามทั่วอาณาจักรสัตว์"},
+  {id:10,name:"Crocodile",emoji:"🐊",type:"Predator",rarity:"Mythic",attack:245,hp:1350,scoreValue:1200,cardColor:"#052e16",rc:"#10b981",rg:"rgba(16,185,129,0.6)",desc:"เครื่องจักรสังหารโบราณที่ไม่เคยเปลี่ยนแปลงมา 200 ล้านปี แรงกัดสูงสุดในโลกสัตว์"}
+];
+
+const LABEL_MAP = {
+  "tabby":1,"tabby cat":1,"tiger cat":1,"Persian cat":1,"Siamese cat":1,"Egyptian cat":1,"lynx":1,"cougar":1,"cheetah":1,"snow leopard":1,"leopard":1,
+  "Labrador retriever":2,"golden retriever":2,"German shepherd":2,"beagle":2,"poodle":2,"Chihuahua":2,"French bulldog":2,"Siberian husky":2,"dalmatian":2,"Border collie":2,"collie":2,"Rottweiler":2,"boxer":2,"shih-tzu":2,"pug":2,"dachshund":2,"malinois":2,"Great Dane":2,"Saint Bernard":2,"Samoyed":2,"cocker spaniel":2,"kelpie":2,"vizsla":2,"weimaraner":2,"bloodhound":2,"toy terrier":2,"bull mastiff":2,"Pembroke Welsh corgi":2,"Cardigan Welsh corgi":2,
+  "ox":3,"water buffalo":3,"bison":3,"American bison":3,"yak":3,
+  "sorrel":4,"horse":4,
+  "spider monkey":5,"macaque":5,"colobus":5,"howler monkey":5,"marmoset":5,"capuchin":5,"squirrel monkey":5,"baboon":5,"proboscis monkey":5,"langur":5,"gibbon":5,"siamang":5,"gorilla":5,"chimpanzee":5,"orangutan":5,
+  "deer":6,"gazelle":6,"impala":6,"eland":6,
+  "zebra":7,
+  "giraffe":8,
+  "lion":9,
+  "American crocodile":10,"crocodile":10,"American alligator":10,"African crocodile":10,"alligator":10,"gavial":10
+};
+
+const CONF_THRESHOLD = 85;
+const MAX_ATK=250,MAX_HP=1500,MAX_SCORE=1200;
+
+let collection = JSON.parse(localStorage.getItem('ws_col')||'{}');
+let totalScore  = parseInt(localStorage.getItem('ws_score')||'0');
+let stream      = null;
+let currentCard = null;
+let model       = null;
+
+function save(){localStorage.setItem('ws_col',JSON.stringify(collection));localStorage.setItem('ws_score',''+totalScore);}
+
+// ─── SCREENS ───
+const SCREENS=['screen-loading','screen-home','screen-camera','screen-processing','screen-reveal','screen-fail','screen-collection'];
+function show(id){SCREENS.forEach(s=>document.getElementById(s).classList.add('hidden'));document.getElementById(id).classList.remove('hidden');}
+
+// ─── LOAD AI ───
+async function loadModel(){
+  const bar=document.getElementById('loading-bar');
+  const st=document.getElementById('loading-status');
+  const msgs=['โหลด TensorFlow.js…','ดาวน์โหลด MobileNet weights…','เตรียม neural network…','ทดสอบโมเดล…','AI พร้อมใช้งาน ✅'];
+  const pcts=[20,45,70,90,100];
+  let i=0;
+  const t=setInterval(()=>{if(i<msgs.length-1){bar.style.width=pcts[i]+'%';st.textContent=msgs[i];i++;}},500);
+  try{
+    model=await mobilenet.load({version:2,alpha:1.0});
+    clearInterval(t);bar.style.width='100%';st.textContent=msgs[4];
+    await delay(600);
+  }catch(e){
+    clearInterval(t);st.textContent='⚠️ โหมด Demo (AI โหลดไม่สำเร็จ)';
+    await delay(1200);
+  }
+  updateHome();show('screen-home');
+}
+
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// ─── HOME ───
+function goHome(){closeCamera();updateHome();show('screen-home');}
+function updateHome(){
+  document.getElementById('home-count').textContent=Object.keys(collection).length;
+  document.getElementById('home-score').textContent=totalScore.toLocaleString();
+}
+
+// ─── CAMERA — กล้องหลัง พร้อม fallback ───
+async function openCamera(){
+  show('screen-camera');
+  const video=document.getElementById('video');
+
+  // ลองเรียกกล้องหลังตามลำดับ
+  const attempts=[
+    {video:{facingMode:{exact:'environment'},width:{ideal:1920},height:{ideal:1080}}},
+    {video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}},
+    {video:{facingMode:'environment'}},
+    {video:true}
+  ];
+
+  for(const c of attempts){
+    try{
+      stream=await navigator.mediaDevices.getUserMedia(c);
+      video.srcObject=stream;
+      await video.play();
+      return;
+    }catch(e){
+      console.warn('Camera attempt failed:',e.name,e.message);
+    }
+  }
+
+  // ถ้าไม่มีกล้องเลย
+  showToast('📷 ไม่พบกล้อง — ใช้โหมด Demo');
+}
+
+function closeCamera(){
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+  const v=document.getElementById('video');
+  v.srcObject=null;
+}
+
+// ─── CAPTURE ───
+async function capturePhoto(){
+  // Flash effect
+  const flash=document.getElementById('camera-flash');
+  flash.classList.add('flash');
+  setTimeout(()=>flash.classList.remove('flash'),200);
+
+  // Haptic feedback (Android)
+  if(navigator.vibrate) navigator.vibrate(50);
+
+  // Draw frame to canvas
+  const video=document.getElementById('video');
+  const canvas=document.getElementById('canvas-hidden');
+  if(video.videoWidth>0){
+    canvas.width=video.videoWidth;
+    canvas.height=video.videoHeight;
+    canvas.getContext('2d').drawImage(video,0,0);
+  } else {
+    canvas.width=224;canvas.height=224;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='#1a1040';ctx.fillRect(0,0,224,224);
+  }
+
+  closeCamera();
+  show('screen-processing');
+  await runAI(canvas);
+}
+
+// ─── REAL AI (TensorFlow.js MobileNet) ───
+async function runAI(canvas){
+  const bar=document.getElementById('proc-bar');
+  const lbl=document.getElementById('proc-label');
+  const em=document.getElementById('proc-emoji');
+  const conf=document.getElementById('proc-confidence');
+
+  const steps=[
+    {p:20,l:'Preprocessing ภาพ…',e:'🖼️'},
+    {p:45,l:'รัน neural network…',e:'🧠'},
+    {p:70,l:'ประเมิน 1,000 คลาส…',e:'🔬'},
+    {p:88,l:'จับคู่กับฐานข้อมูลสัตว์…',e:'🐾'},
+    {p:96,l:'คำนวณ confidence…',e:'📊'},
+  ];
+  let ui=0;
+  const tick=setInterval(()=>{if(ui<steps.length){const s=steps[ui++];bar.style.width=s.p+'%';lbl.textContent=s.l;em.textContent=s.e;}},280);
+
+  let preds=[];
+  if(model){
+    try{ preds=await model.classify(canvas,10); }
+    catch(e){ console.warn('Inference error:',e); }
+  }
+
+  clearInterval(tick);
+  bar.style.width='100%'; em.textContent='✅'; lbl.textContent='เสร็จแล้ว!';
+  await delay(350);
+
+  if(!model || preds.length===0){ demoMode(); return; }
+
+  // หา match
+  let bestId=null, bestConf=0, rawLabel='';
+  for(const p of preds){
+    const label=p.className.split(',')[0].trim();
+    const lower=label.toLowerCase();
+    for(const [key,id] of Object.entries(LABEL_MAP)){
+      if(lower.includes(key.toLowerCase())||key.toLowerCase().includes(lower)){
+        const pct=p.probability*100;
+        if(pct>bestConf){bestConf=pct;bestId=id;rawLabel=label;}
+      }
+    }
+  }
+
+  const topPct=(preds[0].probability*100).toFixed(1);
+  const topLabel=preds[0].className.split(',')[0].trim();
+
+  conf.style.display='block';
+  conf.textContent=topPct+'%';
+  await delay(450);
+
+  if(bestConf<CONF_THRESHOLD){
+    if(bestId){
+      showFail('🔍','ภาพไม่ชัดพอ',
+        `AI เห็น "${rawLabel}" แต่ confidence แค่ ${bestConf.toFixed(1)}% (ต้องการ ≥${CONF_THRESHOLD}%)\nลองถ่ายให้ชัดขึ้น มีแสงมากขึ้น`,
+        `Top: "${topLabel}" (${topPct}%)`);
+    } else {
+      showFail('❓','ไม่รู้จักสัตว์ชนิดนี้',
+        'สัตว์ที่รองรับ: แมว สุนัข วัว ม้า ลิง กวาง ม้าลาย ยีราฟ สิงโต จระเข้',
+        `AI เห็น: "${topLabel}" (${topPct}%)`);
+    }
+    return;
+  }
+
+  if(!bestId){
+    showFail('🦎','สัตว์นอกคอลเล็กชัน',
+      'AI รู้จักสัตว์นี้ แต่ยังไม่อยู่ในเกม ลองหาสัตว์ที่รองรับ 10 ชนิด',
+      `AI เห็น: "${topLabel}" (${topPct}%)`);
+    return;
+  }
+
+  const card=CARDS.find(c=>c.id===bestId);
+  revealCard(card, bestConf);
+}
+
+function demoMode(){
+  // Random weighted by spawn rate (approximated by scoreValue inverse)
+  const weights=[35,32,25,14,12,10,5,3.5,1.5,0.5];
+  const total=weights.reduce((a,b)=>a+b,0);
+  let r=Math.random()*total;
+  let idx=0;
+  for(let i=0;i<weights.length;i++){r-=weights[i];if(r<=0){idx=i;break;}}
+  revealCard(CARDS[idx], 85+Math.random()*12);
+}
+
+// ─── REVEAL ───
+function revealCard(card, confidence){
+  currentCard=card;
+  const isDupe=!!collection[card.id];
+  collection[card.id]=(collection[card.id]||0)+1;
+  const earned=isDupe?Math.floor(card.scoreValue*0.25):card.scoreValue;
+  totalScore+=earned; save();
+
+  document.getElementById('reveal-emoji').textContent=card.emoji;
+  document.getElementById('reveal-name').textContent=card.name;
+  document.getElementById('r-atk').textContent=card.attack;
+  document.getElementById('r-hp').textContent=card.hp;
+  document.getElementById('r-score').textContent=card.scoreValue;
+  document.getElementById('r-desc').textContent=card.desc;
+  document.getElementById('r-type').textContent=card.type;
+  document.getElementById('r-pts').textContent='+'+earned+' pts';
+  document.getElementById('confidence-chip').textContent='🧠 '+confidence.toFixed(1)+'%';
+  document.getElementById('reveal-title').textContent=isDupe?`การ์ดซ้ำ! (+${earned} pts)`:'การ์ดใหม่! 🎉';
+
+  const badge=document.getElementById('reveal-badge');
+  badge.textContent=card.rarity;badge.style.color=card.rc;badge.style.borderColor=card.rc;
+
+  ['r-atk-bar','r-hp-bar','r-score-bar'].forEach((id,i)=>{
+    const pct=[card.attack/MAX_ATK,card.hp/MAX_HP,card.scoreValue/MAX_SCORE][i]*100;
+    document.getElementById(id).style.cssText=`width:${pct}%;background:${card.rc}`;
+  });
+
+  const front=document.getElementById('card-front');
+  front.style.background=`linear-gradient(160deg,${card.cardColor}f0,${card.cardColor}90)`;
+  front.style.border=`1px solid ${card.rc}55`;
+  front.style.boxShadow=`0 20px 60px ${card.rg}`;
+
+  document.getElementById('card-flip').classList.remove('flipped');
+  show('screen-reveal');
+  setTimeout(flipCard,850);
+}
+
+function flipCard(){
+  const f=document.getElementById('card-flip');
+  if(f.classList.contains('flipped'))return;
+  f.classList.add('flipped');
+  if(navigator.vibrate) navigator.vibrate([30,20,60]);
+  if(currentCard) setTimeout(()=>burst(currentCard.rc),380);
+}
+
+// ─── PARTICLES ───
+function burst(color){
+  const c=document.getElementById('particles'); c.innerHTML='';
+  const cx=window.innerWidth/2,cy=window.innerHeight*0.42;
+  const n=color==='#10b981'?65:color==='#f59e0b'?52:color==='#a855f7'?42:28;
+  for(let i=0;i<n;i++){
+    const p=document.createElement('div'); p.className='particle';
+    const a=Math.random()*Math.PI*2,d=80+Math.random()*220;
+    p.style.cssText=`left:${cx}px;top:${cy}px;background:${color};width:${4+Math.random()*9}px;height:${4+Math.random()*9}px;--dx:${Math.cos(a)*d}px;--dy:${Math.sin(a)*d-70}px;animation-duration:${0.9+Math.random()*0.7}s;animation-delay:${Math.random()*0.2}s;box-shadow:0 0 8px ${color};`;
+    c.appendChild(p);
+  }
+  setTimeout(()=>c.innerHTML='',2200);
+}
+
+// ─── FAIL ───
+function showFail(icon,title,msg,detail=''){
+  document.getElementById('fail-icon').textContent=icon;
+  document.getElementById('fail-title').textContent=title;
+  document.getElementById('fail-msg').textContent=msg;
+  const d=document.getElementById('fail-detail');
+  d.textContent=detail; d.style.display=detail?'block':'none';
+  show('screen-fail');
+}
+
+// ─── COLLECTION ───
+function showCollection(){
+  const n=Object.keys(collection).length;
+  document.getElementById('coll-sub').textContent=`พบ ${n} จาก 10 ชนิด`;
+  document.getElementById('coll-score-val').textContent=totalScore.toLocaleString();
+  document.getElementById('coll-pct').textContent=Math.round(n/10*100)+'%';
+  document.getElementById('coll-pfill').style.width=(n/10*100)+'%';
+  const grid=document.getElementById('coll-grid'); grid.innerHTML='';
+  CARDS.forEach(card=>{
+    const owned=collection[card.id]||0,un=owned>0;
+    const el=document.createElement('div'); el.className='mini-card'+(un?'':' locked');
+    if(un){el.style.background=`linear-gradient(145deg,${card.cardColor}e0,${card.cardColor}90)`;el.style.border=`1px solid ${card.rc}55`;el.style.boxShadow=`0 8px 26px ${card.rg}`;}
+    el.innerHTML=`<div class="mini-shine"></div>${owned>1?`<div class="mini-count">×${owned}</div>`:''}`+(!un?'<div class="mini-lock">🔒</div>':'')+`<div class="mini-emoji">${card.emoji}</div><div class="mini-name">${un?card.name:'???'}</div><div class="mini-rarity" style="${un?'color:'+card.rc:''}">${un?card.rarity:'------'}</div>`;
+    if(un) el.onclick=()=>openModal(card);
+    grid.appendChild(el);
+  });
+  show('screen-collection');
+}
+
+// ─── MODAL ───
+function openModal(card){
+  document.getElementById('m-emoji').textContent=card.emoji;
+  document.getElementById('m-name').textContent=card.name;
+  const b=document.getElementById('m-badge'); b.textContent=card.rarity; b.style.color=card.rc; b.style.borderColor=card.rc;
+  document.getElementById('m-atk').textContent=card.attack;
+  document.getElementById('m-hp').textContent=card.hp;
+  document.getElementById('m-score').textContent=card.scoreValue;
+  document.getElementById('m-type').textContent=card.type;
+  document.getElementById('m-desc').textContent=card.desc;
+  const n=collection[card.id]||0;
+  document.getElementById('m-dupes').textContent=n>1?`มี ${n} ใบ — ${n-1} ใบแปลงเป็น shards`:'มี 1 ใบ';
+  const s=document.getElementById('modal-sheet');
+  s.style.background=`linear-gradient(160deg,${card.cardColor}f0,#0d0d1a)`;
+  s.style.borderTop=`2px solid ${card.rc}55`;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(e){
+  if(e&&e.target!==document.getElementById('modal-overlay'))return;
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+// ─── TOAST ───
+function showToast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg;
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+// ─── INIT ───
+show('screen-loading');
+loadModel();
+</script>
+</body>
+</html>
