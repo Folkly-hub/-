@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>เกมสามก๊ก - ระบบการต่อสู้แนวนอน (Three Kingdoms Mobile)</title>
+  
+  <!-- CSS Stylesheets -->
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+  <!-- Portrait Orientation Warning Overlay -->
+  <div id="portrait-overlay">
+    <div class="rotate-icon">🔄</div>
+    <h2>กรุณาหมุนโทรศัพท์เป็นแนวนอน</h2>
+    <p>เกมนี้ได้รับการออกแบบมาสำหรับเล่นในแนวนอน (Landscape Mode) เท่านั้น</p>
+  </div>
+
+  <!-- MAIN MENU OVERLAY SCREEN -->
+  <div id="main-menu-overlay" class="active">
+    <!-- Main Menu Header -->
+    <div class="menu-header-bar">
+      <div class="profile-section">
+        <img id="menu-avatar" class="player-avatar-menu" alt="Avatar">
+        <div class="player-title-box">
+          <span class="player-name-text">ผู้กล้าสามก๊ก</span>
+          <span class="player-rank-text">ขุนศึกฝึกหัด</span>
+        </div>
+      </div>
+
+      <h1 class="game-logo-title">🗡️ สามก๊กยุทธการ 🗡️</h1>
+
+      <!-- Gold Display Badge -->
+      <div class="gold-badge">
+        <span>💰</span>
+        <span id="menu-gold-text">500</span>
+      </div>
+    </div>
+
+    <!-- Mode Selection Cards Grid -->
+    <div class="menu-modes-grid">
+      
+      <!-- Mode Card 1: Story Mode -->
+      <div class="mode-card">
+        <div>
+          <div class="mode-header">
+            <span class="mode-icon">📜</span>
+            <span class="mode-card-title">โหมดเนื้อเรื่อง</span>
+          </div>
+          <p class="mode-card-desc">ผจญภัยในบทสรุปยุทธการสามก๊ก เริ่มต้นจากจุดเริ่มต้นแห่งความโกลาหลนอกเมืองฮูโต๋</p>
+        </div>
+
+        <div>
+          <button id="btn-start-story-ch1" class="btn-start-mode" style="margin-bottom: 4px;">บทที่ 1: เริ่มต้นโกลาหล</button>
+          <button id="btn-start-story-ch2" class="btn-start-mode" style="margin-bottom: 4px;" disabled>🔒 บทที่ 2: โจรแห่งหุบเขา</button>
+          <button id="btn-start-story-ch3" class="btn-start-mode" style="margin-bottom: 4px;" disabled>🔒 บทที่ 3: ขุนศึกผู้ภักดี</button>
+          <button id="btn-start-story-ch4" class="btn-start-mode" style="margin-bottom: 4px;" disabled>🔒 บทที่ 4: คำสาบานในสวนท้อ</button>
+          <button id="btn-start-story-ch5" class="btn-start-mode" style="margin-bottom: 4px;" disabled>🔒 บทที่ 5: รวมตัวสามพี่น้อง</button>
+          <div class="ch2-preview-btn">🔒 บทที่ 6: ศึกสะพานจางปันกิ้ว (ล็อกอยู่)</div>
+        </div>
+      </div>
+
+      <!-- Mode Card 2: Practice vs AI Mode -->
+      <div class="mode-card">
+        <div>
+          <div class="mode-header">
+            <span class="mode-icon">⚔️</span>
+            <span class="mode-card-title">ฝึกซ้อมกับบอท (AI)</span>
+          </div>
+          <p class="mode-card-desc">เลือกระดับความยากของ AI เพื่อฝึกฝนกลยุทธ์การจัดสรรพลังงานในการรบจริง</p>
+        </div>
+
+        <div>
+          <!-- Difficulty Selector Pills -->
+          <div class="difficulty-selector">
+            <button id="btn-diff-easy" class="btn-diff-pill easy">🟢 ง่าย</button>
+            <button id="btn-diff-medium" class="btn-diff-pill medium active">🟡 กลาง</button>
+            <button id="btn-diff-hard" class="btn-diff-pill hard">🔴 ยาก</button>
+          </div>
+
+          <button id="btn-start-ai-practice" class="btn-start-mode">เริ่มการประลอง (กวนอู VS ลิโป้)</button>
+        </div>
+      </div>
+
+      <!-- Mode Card 3: Pass & Play 2P Mode -->
+      <div class="mode-card">
+        <div>
+          <div class="mode-header">
+            <span class="mode-icon">👥</span>
+            <span class="mode-card-title">เล่น 2 คน (สลับกันเลือก)</span>
+          </div>
+          <p class="mode-card-desc">ประลองกับเพื่อนบนมือถือเครื่องเดียวกัน โดยผลัดกันวางแผนพลังงานอย่างลับๆ</p>
+        </div>
+
+        <div>
+          <button id="btn-start-passplay" class="btn-start-mode">เริ่มการรบ 2 คน</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Main Game Container -->
+  <div id="app-container">
+    
+    <!-- Top Header Bar -->
+    <header id="top-header">
+      <div class="header-left">
+        <button id="btn-goto-menu" class="btn-home">🏠 เมนูหลัก</button>
+        
+        <!-- Gold Display Badge In-Game -->
+        <div class="gold-badge">
+          <span>💰</span>
+          <span id="ingame-gold-text">500</span>
+        </div>
+      </div>
+
+      <div class="round-info">
+        <span class="round-title" id="round-counter">รอบที่ 1</span>
+        <span class="round-gain" id="round-gain-badge">+1 พลังงาน</span>
+      </div>
+
+      <div class="header-controls">
+        <button id="btn-toggle-mode" class="btn-mode">โหมด: เนื้อเรื่อง บทที่ 1</button>
+        <button id="btn-reset-game" class="btn-reset-header">เริ่มใหม่</button>
+      </div>
+    </header>
+
+    <!-- Tutorial Guidance Banner -->
+    <div id="tutorial-banner">
+      <span id="tutorial-banner-text">คำแนะนำ: ใส่ 1 พลังงานที่ 'โจมตี' แล้วกด 'ยืนยันการกระทำ'!</span>
+    </div>
+
+    <!-- Battle Arena (Center Cards) -->
+    <main id="battle-arena">
+      
+      <!-- Player 1 Character Card -->
+      <div id="p1-card" class="character-card">
+        <div class="card-portrait-wrapper">
+          <img id="p1-portrait" class="character-portrait" alt="โจโฉ">
+          <div id="p1-name" class="character-name">โจโฉ</div>
+        </div>
+
+        <div class="card-details">
+          <!-- HP Bar -->
+          <div class="hp-container">
+            <div class="hp-label-bar">
+              <span>พลังชีวิต</span>
+              <span id="p1-hp-text">1000 / 1000</span>
+            </div>
+            <div class="hp-bar-bg">
+              <div id="p1-hp-bar" class="hp-bar-fill"></div>
+            </div>
+          </div>
+
+          <!-- Badges Grid -->
+          <div class="card-stats-grid">
+            <div class="stat-badge">
+              <span class="stat-label">พลังโจมตี</span>
+              <span id="p1-atk" class="stat-value atk">100</span>
+            </div>
+            <div class="stat-badge">
+              <span class="stat-label">เกราะ</span>
+              <span id="p1-shield" class="stat-value shield">0</span>
+            </div>
+            <div class="stat-badge">
+              <span class="stat-label">พลังงาน</span>
+              <span id="p1-energy" class="stat-value energy">1</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VS Badge -->
+      <div class="vs-badge">VS</div>
+
+      <!-- Player 2 / Enemy Character Card -->
+      <div id="p2-card" class="character-card">
+        <div class="card-portrait-wrapper">
+          <img id="p2-portrait" class="character-portrait" alt="โจรผ้าเหลือง">
+          <div id="p2-name" class="character-name">โจรผ้าเหลือง</div>
+        </div>
+
+        <div class="card-details">
+          <!-- HP Bar -->
+          <div class="hp-container">
+            <div class="hp-label-bar">
+              <span>พลังชีวิต</span>
+              <span id="p2-hp-text">500 / 500</span>
+            </div>
+            <div class="hp-bar-bg">
+              <div id="p2-hp-bar" class="hp-bar-fill"></div>
+            </div>
+          </div>
+
+          <!-- Badges Grid -->
+          <div class="card-stats-grid">
+            <div class="stat-badge">
+              <span class="stat-label">พลังโจมตี</span>
+              <span id="p2-atk" class="stat-value atk">50</span>
+            </div>
+            <div class="stat-badge">
+              <span class="stat-label">เกราะ</span>
+              <span id="p2-shield" class="stat-value shield">0</span>
+            </div>
+            <div class="stat-badge">
+              <span class="stat-label">พลังงาน</span>
+              <span id="p2-energy" class="stat-value energy">1</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Floating Text Container -->
+      <div id="floating-text-container"></div>
+    </main>
+
+    <!-- Bottom Action Panel (Energy Allocation Console) -->
+    <footer id="action-panel">
+      <!-- Total Energy Indicator -->
+      <div class="energy-summary-box">
+        <span class="energy-total-title">พลังงานทั้งหมด</span>
+        <span id="val-total-energy" class="energy-total-value">1</span>
+        <span id="val-remaining-energy" class="energy-remaining-sub">คงเหลือ: 1</span>
+      </div>
+
+      <!-- Allocation Steppers -->
+      <div class="allocation-controls-container">
+        
+        <!-- Attack Allocation -->
+        <div class="allocation-group">
+          <span class="group-title atk">⚔️ โจมตี</span>
+          <div class="stepper-controls">
+            <button id="btn-atk-minus" class="btn-step" disabled>-</button>
+            <span id="val-atk-num" class="allocated-num">0</span>
+            <button id="btn-atk-plus" class="btn-step">+</button>
+          </div>
+        </div>
+
+        <!-- Defend Allocation -->
+        <div class="allocation-group">
+          <span class="group-title def">🛡️ ป้องกัน</span>
+          <div class="stepper-controls">
+            <button id="btn-def-minus" class="btn-step" disabled>-</button>
+            <span id="val-def-num" class="allocated-num">0</span>
+            <button id="btn-def-plus" class="btn-step">+</button>
+          </div>
+        </div>
+
+        <!-- Charge Allocation -->
+        <div class="allocation-group">
+          <span class="group-title chg">⚡ สะสมพลัง</span>
+          <div class="stepper-controls">
+            <button id="btn-chg-minus" class="btn-step" disabled>-</button>
+            <span id="val-chg-num" class="allocated-num">0</span>
+            <button id="btn-chg-plus" class="btn-step">+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Confirm Turn / Lock Action -->
+      <button id="btn-confirm-turn" class="btn-confirm-turn">ยืนยันการกระทำ</button>
+    </footer>
+
+  </div>
+
+  <!-- Story Dialogue Cutscene Box -->
+  <div id="dialogue-overlay">
+    <div class="dialogue-box-card">
+      <img id="dialogue-speaker-portrait" class="dialogue-avatar" alt="ผู้พูด">
+      <div class="dialogue-content">
+        <span id="dialogue-speaker-name" class="dialogue-speaker">ทหาร</span>
+        <p id="dialogue-text" class="dialogue-body">นายท่าน! โจรผ้าเหลืองบุกโจมตีหมู่บ้านอีกแล้วครับ!</p>
+      </div>
+      <div class="dialogue-controls">
+        <button id="btn-dialogue-skip" class="btn-dialogue">ข้าม</button>
+        <button id="btn-dialogue-next" class="btn-dialogue">ถัดไป ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pass & Play Privacy Screen Modal -->
+  <div id="pass-play-modal" class="modal-overlay">
+    <div class="modal-card">
+      <h2 id="pass-play-text" class="modal-title">ส่งมือถือให้ผู้เล่นคนที่ 2</h2>
+      <p class="modal-subtitle">กดปุ่มพร้อมเมื่อคุณพร้อมเลือกพลังงานลับของคุณ</p>
+      <button id="btn-pass-play-ready" class="btn-modal-action">พร้อมแล้ว</button>
+    </div>
+  </div>
+
+  <!-- Victory & Rewards Screen Modal -->
+  <div id="victory-modal" class="modal-overlay">
+    <div class="modal-card">
+      <h1 id="victory-title" class="modal-title">พิชิตบทที่ 5 สำเร็จ!</h1>
+      <p id="victory-subtitle" class="modal-subtitle">การรวมตัวของสามพี่น้องสมบูรณ์แล้ว!</p>
+      
+      <!-- Chapter Rewards -->
+      <div class="rewards-grid">
+        <div class="reward-item" id="reward-gold-badge">💰 ทอง +700</div>
+        <div class="reward-item" id="reward-unlock-badge">📜 ปลดล็อกบทใหม่</div>
+      </div>
+
+      <div class="modal-actions-row">
+        <button id="btn-next-chapter-modal" class="btn-modal-action primary">เริ่มด่านต่อไป ▶</button>
+        <button id="btn-restart-modal" class="btn-modal-action secondary">เล่นอีกครั้ง</button>
+        <button id="btn-menu-modal" class="btn-modal-action secondary">เมนูหลัก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Modules -->
+  <script src="js/utils.js"></script>
+  <script src="js/battle.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/story.js"></script>
+  <script src="js/animation.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/game.js"></script>
+
+</body>
+</html>
