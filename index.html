@@ -134,6 +134,9 @@
       <span id="tutorial-banner-text">คำแนะนำ: ใส่ 1 พลังงานที่ 'โจมตี' แล้วกด 'ยืนยันการกระทำ'!</span>
     </div>
 
+    <!-- 3D Battle Scene Canvas Container -->
+    <div id="combat-3d-container"></div>
+
     <!-- Battle Arena (Center Cards) -->
     <main id="battle-arena">
       
@@ -360,7 +363,15 @@
     </div>
   </div>
 
+  <!-- 3D Combat Engine (Three.js & Combat3D Modules) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="js/combat3d/Combat3DCamera.js"></script>
+  <script src="js/combat3d/Combat3DScene.js"></script>
+  <script src="js/combat3d/Combat3DAnimator.js"></script>
+  <script src="js/combat3d/Combat3DController.js"></script>
+
   <!-- JavaScript Modules -->
+  <script src="js/characters/CharacterRegistry.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/battle.js"></script>
   <script src="js/ai.js"></script>

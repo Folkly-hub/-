@@ -35,7 +35,124 @@ class StoryManager {
     this.triggeredHp50Ch7 = false;
     this.triggeredHpLowCh7 = false;
 
+    // Episode Character & Battle Configurations mapped to Character Registry IDs
+    this.episodes = {
+      story_ch1: {
+        id: 1,
+        modeKey: 'story_ch1',
+        title: 'บทที่ 1: เริ่มต้นโกลาหล',
+        playerCharacterId: 'guanYu',
+        enemyCharacterId: 'luBu',
+        playerHp: 1000,
+        playerAtk: 100,
+        enemyHp: 500,
+        enemyAtk: 50,
+        enemyName: 'โจรผ้าเหลือง'
+      },
+      story_ch2: {
+        id: 2,
+        modeKey: 'story_ch2',
+        title: 'บทที่ 2: โจรแห่งหุบเขา',
+        playerCharacterId: 'caoCao',
+        enemyCharacterId: 'banditLeader',
+        playerHp: 1000,
+        playerAtk: 100,
+        enemyHp: 900,
+        enemyAtk: 90,
+        enemyName: 'หัวหน้าโจร'
+      },
+      story_ch3: {
+        id: 3,
+        modeKey: 'story_ch3',
+        title: 'บทที่ 3: ขุนศึกผู้ภักดี',
+        playerCharacterId: 'xiahouDun',
+        enemyCharacterId: 'mountainBanditLeader',
+        playerHp: 1500,
+        playerAtk: 120,
+        enemyHp: 1200,
+        enemyAtk: 110,
+        enemyName: 'หัวหน้าโจรภูเขา'
+      },
+      story_ch4: {
+        id: 4,
+        modeKey: 'story_ch4',
+        title: 'บทที่ 4: คำสาบานในสวนท้อ',
+        playerCharacterId: 'liuBei',
+        enemyCharacterId: 'yellowTurbanCommander',
+        playerHp: 1100,
+        playerAtk: 90,
+        enemyHp: 1500,
+        enemyAtk: 120,
+        enemyName: 'ผู้บัญชาการโจรผ้าเหลือง'
+      },
+      story_ch5: {
+        id: 5,
+        modeKey: 'story_ch5',
+        title: 'บทที่ 5: ศึกแรกของสามพี่น้อง',
+        playerCharacterId: 'liuBei',
+        enemyCharacterId: 'yellowTurbanCommander',
+        playerHp: 1100,
+        playerAtk: 90,
+        enemyHp: 1800,
+        enemyAtk: 140,
+        enemyName: 'ผู้บัญชาการโจรผ้าเหลือง'
+      },
+      story_ch6: {
+        id: 6,
+        modeKey: 'story_ch6',
+        title: 'บทที่ 6: เงามืดแห่งตั๋งโต๊ะ',
+        playerCharacterId: 'guanYu',
+        enemyCharacterId: 'dongZhuoVanguard',
+        playerHp: 1600,
+        playerAtk: 180,
+        enemyHp: 1900,
+        enemyAtk: 145,
+        enemyName: 'กองหน้าตั๋งโต๊ะ'
+      },
+      story_ch7: {
+        id: 7,
+        modeKey: 'story_ch7',
+        title: 'บทที่ 7: นักรบผู้ยิ่งใหญ่ที่สุด',
+        playerCharacterId: 'guanYu',
+        enemyCharacterId: 'luBu',
+        playerHp: 1300,
+        playerAtk: 180,
+        enemyHp: 2500,
+        enemyAtk: 230,
+        enemyName: 'ลิโป้'
+      }
+    };
+
     this.initDOM();
+    this.validateEpisodes();
+  }
+
+  /**
+   * Validate all Story Mode episodes to ensure playerCharacterId and enemyCharacterId are specified.
+   * Logs warnings for any incomplete episode data.
+   */
+  validateEpisodes() {
+    if (!this.episodes) return;
+    for (const [key, ep] of Object.entries(this.episodes)) {
+      if (!ep.playerCharacterId) {
+        console.warn(`StoryManager Warning: Episode "${key}" is missing playerCharacterId.`);
+      }
+      if (!ep.enemyCharacterId) {
+        console.warn(`StoryManager Warning: Episode "${key}" is missing enemyCharacterId.`);
+      }
+    }
+  }
+
+  /**
+   * Get Episode configuration object by story mode key
+   * @param {string} modeKey - e.g. 'story_ch1', 'story_ch2'
+   * @returns {Object|null} Episode configuration
+   */
+  getEpisode(modeKey) {
+    if (this.episodes && this.episodes[modeKey]) {
+      return this.episodes[modeKey];
+    }
+    return null;
   }
 
   initDOM() {

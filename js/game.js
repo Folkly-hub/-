@@ -210,46 +210,40 @@ class GameController {
       this.story.resetTriggers();
     }
 
-    if (this.mode === 'story_ch1') {
-      // Chapter 1 Setup (Cao Cao vs Yellow Turban)
-      this.p1 = new Character('p1', 'โจโฉ', 1000, 100, 'caocao');
-      this.p2 = new Character('p2', 'โจรผ้าเหลือง', 500, 50, 'yellowturban');
-    } else if (this.mode === 'story_ch2') {
-      // Chapter 2 Setup (Cao Cao vs Bandit Leader)
-      this.p1 = new Character('p1', 'โจโฉ', 1000, 100, 'caocao');
-      this.p2 = new Character('p2', 'หัวหน้าโจร', 900, 90, 'bandit_leader');
-    } else if (this.mode === 'story_ch3') {
-      // Chapter 3 Setup (Xiahou Dun vs Mountain Bandit Leader)
-      this.p1 = new Character('p1', 'แฮหัวตุ้น', 1500, 120, 'xiahou_dun');
-      this.p2 = new Character('p2', 'หัวหน้าโจรภูเขา', 1200, 110, 'mountain_bandit_leader');
-    } else if (this.mode === 'story_ch4') {
-      // Chapter 4 Setup (Liu Bei HP 1100, ATK 90 vs Yellow Turban Commander HP 1500, ATK 120)
-      this.p1 = new Character('p1', 'เล่าปี่', 1100, 90, 'liubei');
-      this.p2 = new Character('p2', 'ผู้บัญชาการโจรผ้าเหลือง', 1500, 120, 'yellowturban_commander');
-    } else if (this.mode === 'story_ch5') {
-      // Chapter 5 Setup (Liu Bei HP 1100, ATK 90 vs Yellow Turban Commander HP 1800, ATK 140)
-      this.p1 = new Character('p1', 'เล่าปี่', 1100, 90, 'liubei');
-      this.p2 = new Character('p2', 'ผู้บัญชาการโจรผ้าเหลือง', 1800, 140, 'yellowturban_commander');
-    } else if (this.mode === 'story_ch6') {
-      // Chapter 6 Setup (Guan Yu HP 1600, ATK 180 vs Dong Zhuo Vanguard Commander HP 1900, ATK 145)
-      this.p1 = new Character('p1', 'กวนอู', 1600, 180, 'guanyu');
-      this.p2 = new Character('p2', 'กองหน้าตั๋งโต๊ะ', 1900, 145, 'dongzhuo_vanguard');
-    } else if (this.mode === 'story_ch7') {
-      // Chapter 7 Setup (Guan Yu HP 1300, ATK 180 vs Lü Bu HP 2500, ATK 230)
-      this.p1 = new Character('p1', 'กวนอู', 1300, 180, 'guanyu');
-      this.p2 = new Character('p2', 'ลิโป้', 2500, 230, 'lubu');
+    // Resolve Episode Character IDs & Battle Configurations
+    const episode = this.story ? this.story.getEpisode(this.mode) : null;
+
+    if (episode) {
+      // Look up character profiles in central CharacterRegistry
+      const p1Config = window.CharacterRegistry ? window.CharacterRegistry.get(episode.playerCharacterId) : null;
+      const p2Config = window.CharacterRegistry ? window.CharacterRegistry.get(episode.enemyCharacterId) : null;
+
+      const p1Name = p1Config ? p1Config.name : episode.playerCharacterId;
+      const p1Portrait = (p1Config && p1Config.portraitKey) ? p1Config.portraitKey : episode.playerCharacterId.toLowerCase();
+
+      const p2Name = episode.enemyName || (p2Config ? p2Config.name : episode.enemyCharacterId);
+      const p2Portrait = (p2Config && p2Config.portraitKey) ? p2Config.portraitKey : episode.enemyCharacterId.toLowerCase();
+
+      this.p1 = new Character('p1', p1Name, episode.playerHp, episode.playerAtk, p1Portrait, episode.playerCharacterId);
+      this.p2 = new Character('p2', p2Name, episode.enemyHp, episode.enemyAtk, p2Portrait, episode.enemyCharacterId);
     } else if (this.mode === 'passplay') {
       const cfg = this.passPlayConfig;
-      this.p1 = new Character('p1', cfg.p1.name, cfg.p1.hp, cfg.p1.atk, cfg.p1.portrait);
-      this.p2 = new Character('p2', cfg.p2.name, cfg.p2.hp, cfg.p2.atk, cfg.p2.portrait);
+      this.p1 = new Character('p1', cfg.p1.name, cfg.p1.hp, cfg.p1.atk, cfg.p1.portrait, 'guanYu');
+      this.p2 = new Character('p2', cfg.p2.name, cfg.p2.hp, cfg.p2.atk, cfg.p2.portrait, 'luBu');
     } else {
       // AI Practice Battle Setup (Guan Yu vs Lu Bu)
-      this.p1 = new Character('p1', 'กวนอู', 1000, 120, 'guanyu');
-      this.p2 = new Character('p2', 'ลิโป้', 1000, 120, 'lubu');
+      this.p1 = new Character('p1', 'กวนอู', 1000, 120, 'guanyu', 'guanYu');
+      this.p2 = new Character('p2', 'ลิโป้', 1000, 120, 'lubu', 'luBu');
     }
 
     this.p1.reset();
     this.p2.reset();
+
+    // Dynamically setup 3D characters for Player (p1) and Enemy (p2)
+    if (window.combat3D) {
+      combat3D.setupCharacters(this.p1.characterId, this.p2.characterId);
+      combat3D.resetAll();
+    }
 
     // Round 1 Energy Gain (+1)
     this.p1.startNewRound(this.roundNumber);
@@ -503,7 +497,70 @@ class GameController {
     // Restore enemy ATK after resolution
     this.p2.atk = originalP2Atk;
 
-    // 2. Combat Animations & Floating Numbers
+    // 2. Trigger 3D Battle Animations based on resolved Attack & Defend Energy
+    if (window.combat3D) {
+      const p1AtkEnergy = res.p1Result.attackEnergy || 0;
+      const p2AtkEnergy = res.p2Result.attackEnergy || 0;
+      const p1DefEnergy = res.p1Result.shieldCreated || 0;
+      const p2DefEnergy = res.p2Result.shieldCreated || 0;
+      const p1BlockedByP2 = res.p1Result.blockedEnergy || 0;
+      const p2BlockedByP1 = res.p2Result.blockedEnergy || 0;
+
+      // Use characterId from CharacterRegistry — set by startNewGame() for all modes
+      const p1CharKey = this.p1.characterId || 'guanYu';
+      const p2CharKey = this.p2.characterId || 'luBu';
+
+      // Simultaneous 3D Action Execution (Both characters clash at t = 0)
+      if (p1AtkEnergy > 0) {
+        if (res.p1Result.specialPowerActivated) {
+          combat3D.playSpecial(p1CharKey);
+        } else {
+          combat3D.playAttack(p1CharKey, p1AtkEnergy);
+        }
+      } else if (p1DefEnergy > 0) {
+        combat3D.playDefend(p1CharKey);
+      }
+
+      if (p2AtkEnergy > 0) {
+        if (res.p2Result.specialPowerActivated) {
+          combat3D.playSpecial(p2CharKey);
+        } else {
+          combat3D.playAttack(p2CharKey, p2AtkEnergy);
+        }
+      } else if (p2DefEnergy > 0) {
+        combat3D.playDefend(p2CharKey);
+      }
+
+      // Schedule damage feedback & block impacts at peak impact frame (t = 450ms into simultaneous clash)
+      if (p1AtkEnergy > 0 || p2AtkEnergy > 0) {
+        setTimeout(() => {
+          if (p1AtkEnergy > 0) {
+            if (res.p1Result.damageDealt > 0) {
+              combat3D.showDamage(p2CharKey, res.p1Result.damageDealt);
+            } else if (p1BlockedByP2 > 0) {
+              combat3D.showDamage(p2CharKey, 0, true);
+              combat3D.playBlockImpact(p2CharKey);
+            }
+          }
+
+          if (p2AtkEnergy > 0) {
+            if (res.p2Result.damageDealt > 0) {
+              combat3D.showDamage(p1CharKey, res.p2Result.damageDealt);
+            } else if (p2BlockedByP1 > 0) {
+              combat3D.showDamage(p1CharKey, 0, true);
+              combat3D.playBlockImpact(p1CharKey);
+            }
+          }
+        }, 450);
+
+        // Await single combined clash duration (~1350ms total)
+        await new Promise(resolve => setTimeout(resolve, 1350));
+      } else if (p1DefEnergy > 0 || p2DefEnergy > 0) {
+        await new Promise(resolve => setTimeout(resolve, 900));
+      }
+    }
+
+    // 3. Combat Animations & Floating Numbers
     if (res.p1Result.attackEnergy > 0) {
       if (res.p1Result.blockedEnergy > 0) {
       //   AnimationManager.showFloatingText('p2-card', `กันดาเมจ (${res.p1Result.blockedEnergy})`, 'blocked');
@@ -683,6 +740,12 @@ class GameController {
     const p1Defeated = this.p1.isDefeated();
     const p2Defeated = this.p2.isDefeated();
 
+    if (window.combat3D) {
+      // Use characterId directly — always set by startNewGame() via CharacterRegistry
+      if (p1Defeated) combat3D.playKO(this.p1.characterId || 'p1');
+      if (p2Defeated) combat3D.playKO(this.p2.characterId || 'p2');
+    }
+
     if (p1Defeated && p2Defeated) {
       if (res.p1Result.damageDealt > res.p2Result.damageDealt) {
         this.handleMatchVictory(this.p1.name, `ล้มลงทั้งคู่ แต่${this.p1.name}โจมตีได้รุนแรงกว่า! (${res.p1Result.damageDealt} vs ${res.p2Result.damageDealt} ดาเมจ)`);
@@ -696,6 +759,10 @@ class GameController {
       this.handleMatchVictory(this.p1.name, 'ศัตรูถูกปราบปรามราบพนาสูญ!');
       return;
     } else if (p1Defeated) {
+      if (window.combat3D) {
+        // P2 wins → victory for the right-side character (p2.characterId)
+        combat3D.playVictory(this.p2.characterId || 'p2');
+      }
       this.ui.showVictoryModal(`${this.p2.name} เป็นฝ่ายชนะ!`, 'พ่ายแพ้ในการรบ! กรุณาลองใหม่อีกครั้ง', 0);
       return;
     }
@@ -841,6 +908,15 @@ class GameController {
   }
 
   handleMatchVictory(winnerName, subText) {
+    if (window.combat3D) {
+      // Resolve winner by comparing name to p1/p2 — use characterId directly (not name string)
+      // p2 wins: p1Defeated path. p1 wins: p2Defeated path, winnerName = this.p1.name.
+      const winnerChar = (this.p1 && this.p1.name === winnerName) ? this.p1
+                       : (this.p2 && this.p2.name === winnerName) ? this.p2
+                       : this.p1; // safe fallback to p1
+      combat3D.playVictory(winnerChar.characterId || 'p1');
+    }
+
     let earnedGold = 100;
     let unlockText = null;
     let hasNextChapter = false;

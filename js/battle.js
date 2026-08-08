@@ -4,7 +4,7 @@
  */
 
 class Character {
-  constructor(id, name, maxHp, atk, portraitKey) {
+  constructor(id, name, maxHp, atk, portraitKey, characterId = null) {
     this.id = id;
     this.name = name;
     this.maxHp = maxHp;
@@ -17,6 +17,7 @@ class Character {
     this.shield = 0;
     this.preservedCharge = 0;
     this.portraitKey = portraitKey;
+    this.characterId = characterId || (portraitKey === 'lubu' ? 'luBu' : (portraitKey === 'guanyu' ? 'guanYu' : portraitKey));
 
     // Special Power System
     this.guanYuSpecialPowerActivated = false;
